@@ -1,83 +1,37 @@
 # Import Report
 
-Run result: PARTIAL
+**Status: PARTIAL — public working-tree consolidation succeeded; full private-source/history import requires the listed Actions secrets.**
 
-Target: MMLabsAI/markazi1
-branches: 7
-tags: 4
-pull refs: 0
-trees: 11
-tree entries: 101
-unique paths added: 0
-conflict versions added: 0
-ref push failures: 8
-lfs failures: 0
+Target: `MMLabsAI/markazi1`
 
-## Required secrets
-- SOURCE_TOKEN_MAHDITT96
-- SOURCE_TOKEN_MATAGHDISI96_SOURCE
-- SOURCE_TOKEN_MMLABSAI
-- TARGET_WRITE_TOKEN
+## Verified import
 
-## Private repositories skipped
-- MiniTZOS/minitz-os-final
-- MiniTZOS/MiniTZOS
-- MInitzrm/biella
-- MInitzrm/biella-engine
-- MInitzrm/biella-games
-- MInitzrm/capability_preparation
-- MInitzrm/MiniTZ
-- MInitzrm/MiniTZCTO
-- MInitzrm/MiniTZOS-booted
-- MInitzrm/MiniTZOS-preboot
-- taghdisilabs-digital/demo-repository
-- taghdisilabs-digital/tree
+- Six public source repositories were fetched during the latest run; four have fully pushed their current source refs through the automated path.
+- The consolidated `main` working tree now contains the union of unique paths plus conflicting versions under `__MINITZ_SOURCE_VERSIONS__/`.
+- Latest automated run: [run 5](https://github.com/MMLabsAI/markazi1/actions/runs/38600020360), concluded success.
+- Automated scan observed 7 source branch refs, 4 tag refs, 11 branch/tag trees, and 101 tree entries. Git LFS reported no failures in that run.
+- Six refs that Git push rejected have been recovered through the connected GitHub API, preserving their original commit SHAs. Verified target branch heads:
+  - `source-branches/MInitzrm/TaghdisiLabs/main` and `.../tree` → `68a80d406a421c6391288aa8d774387ab5346867`
+  - `source-branches/MInitzrm/ZombieTZ-Releases/main` → `bd51a44a46dd1aa515cfacbe233f849ba81c6a09`
+  - Matching content-addressed snapshots are also present.
+  - The commit for tag `demo01-rtx-20261004-c35d317` is preserved at `source-tag-commits/MInitzrm/ZombieTZ-Releases/demo01-rtx-20261004-c35d317` and its snapshot branch. The literal Git tag ref remains pending a target write token with Workflows permission.
 
-## Token errors
+## Required repository Actions secrets
 
-## Repository results
+Add the following secrets in **Settings → Secrets and variables → Actions**. Use tokens from the corresponding account, not copied credentials in chat.
 
-| Repository | Status | Branches | Tags | PR refs | Trees | LFS |
-|---|---|---:|---:|---:|---:|---|
-| MiniTZOS/minitz-os-final | SKIPPED_MISSING_TOKEN | 0 | 0 | 0 | 0 | — |
-| MiniTZOS/MiniTZOS | SKIPPED_MISSING_TOKEN | 0 | 0 | 0 | 0 | — |
-| MInitzrm/biella | SKIPPED_MISSING_TOKEN | 0 | 0 | 0 | 0 | — |
-| MInitzrm/biella-engine | SKIPPED_MISSING_TOKEN | 0 | 0 | 0 | 0 | — |
-| MInitzrm/biella-games | SKIPPED_MISSING_TOKEN | 0 | 0 | 0 | 0 | — |
-| MInitzrm/capability_preparation | SKIPPED_MISSING_TOKEN | 0 | 0 | 0 | 0 | — |
-| MInitzrm/crzcode | IMPORTED | 1 | 0 | 0 | 1 | uploaded |
-| MInitzrm/MiniTZ | SKIPPED_MISSING_TOKEN | 0 | 0 | 0 | 0 | — |
-| MInitzrm/MiniTZCTO | SKIPPED_MISSING_TOKEN | 0 | 0 | 0 | 0 | — |
-| MInitzrm/MiniTZOS-booted | SKIPPED_MISSING_TOKEN | 0 | 0 | 0 | 0 | — |
-| MInitzrm/MiniTZOS-preboot | SKIPPED_MISSING_TOKEN | 0 | 0 | 0 | 0 | — |
-| MInitzrm/TaghdisiLabs | PARTIAL | 2 | 0 | 0 | 2 | uploaded |
-| MInitzrm/ZombieTZ-Releases | PARTIAL | 1 | 2 | 0 | 3 | uploaded |
-| MMLabsAI/MiniTZ | IMPORTED | 1 | 0 | 0 | 1 | uploaded |
-| taghdisilabs-digital/demo-repository | SKIPPED_MISSING_TOKEN | 0 | 0 | 0 | 0 | — |
-| taghdisilabs-digital/MiniTZ-Playable-Linux-D08 | IMPORTED | 1 | 1 | 0 | 2 | uploaded |
-| taghdisilabs-digital/tree | SKIPPED_MISSING_TOKEN | 0 | 0 | 0 | 0 | — |
-| taghdisilabs-digital/v1OS | IMPORTED | 1 | 1 | 0 | 2 | uploaded |
+- `SOURCE_TOKEN_MAHDITT96`: read access to private repositories visible to MahdiTT96.
+- `SOURCE_TOKEN_MMLABSAI`: read access to private repositories visible to MMLabsAI.
+- `SOURCE_TOKEN_MATAGHDISI96_SOURCE`: read access to repositories visible to mataghdisi96-source; that connector inventory returned zero repositories, so this token also enables a full API inventory.
+- `TARGET_WRITE_TOKEN`: write access to `MMLabsAI/markazi1`, including **Contents: read/write** and **Workflows: read/write**. It enables original commit refs containing workflow changes to be imported exactly. It may be the same token value as `SOURCE_TOKEN_MMLABSAI` if that token has the required target permissions; store it under both secret names.
 
-## Ref push failures
-- +68a80d406a421c6391288aa8d774387ab5346867:refs/heads/source-branches/MInitzrm/TaghdisiLabs/main: error: failed to push some refs to 'https://github.com/MMLabsAI/markazi1'
+Then run the workflow manually from [Actions](https://github.com/MMLabsAI/markazi1/actions) using **Consolidate repository history → Run workflow**. It discovers all additional repositories accessible to the configured tokens and retries the missing private history and refs.
 
-- 68a80d406a421c6391288aa8d774387ab5346867:refs/heads/source-snapshots/MInitzrm/TaghdisiLabs/main/68a80d406a421c6391288aa8d774387ab5346867: error: failed to push some refs to 'https://github.com/MMLabsAI/markazi1'
+## Private repositories currently skipped
 
-- +68a80d406a421c6391288aa8d774387ab5346867:refs/heads/source-branches/MInitzrm/TaghdisiLabs/tree: error: failed to push some refs to 'https://github.com/MMLabsAI/markazi1'
+`MiniTZOS/minitz-os-final`, `MiniTZOS/MiniTZOS`, `MInitzrm/biella`, `MInitzrm/biella-engine`, `MInitzrm/biella-games`, `MInitzrm/capability_preparation`, `MInitzrm/MiniTZ`, `MInitzrm/MiniTZCTO`, `MInitzrm/MiniTZOS-booted`, `MInitzrm/MiniTZOS-preboot`, `taghdisilabs-digital/demo-repository`, and `taghdisilabs-digital/tree`.
 
-- 68a80d406a421c6391288aa8d774387ab5346867:refs/heads/source-snapshots/MInitzrm/TaghdisiLabs/tree/68a80d406a421c6391288aa8d774387ab5346867: error: failed to push some refs to 'https://github.com/MMLabsAI/markazi1'
+## Remaining limitations
 
-- +bd51a44a46dd1aa515cfacbe233f849ba81c6a09:refs/heads/source-branches/MInitzrm/ZombieTZ-Releases/main: error: failed to push some refs to 'https://github.com/MMLabsAI/markazi1'
-
-- bd51a44a46dd1aa515cfacbe233f849ba81c6a09:refs/heads/source-snapshots/MInitzrm/ZombieTZ-Releases/main/bd51a44a46dd1aa515cfacbe233f849ba81c6a09: error: failed to push some refs to 'https://github.com/MMLabsAI/markazi1'
-
-- +751122872da992f93a380bf1c1b32e2137e952d8:refs/tags/source-tags/MInitzrm/ZombieTZ-Releases/demo01-rtx-20261004-c35d317: error: failed to push some refs to 'https://github.com/MMLabsAI/markazi1'
-
-- 751122872da992f93a380bf1c1b32e2137e952d8:refs/tags/source-tag-snapshots/MInitzrm/ZombieTZ-Releases/demo01-rtx-20261004-c35d317/751122872da992f93a380bf1c1b32e2137e952d8: error: failed to push some refs to 'https://github.com/MMLabsAI/markazi1'
-
-
-## Known omissions
-- GitHub release assets are not Git refs and are not copied by this workflow.
-- A missing source token means that private repository and any additional account-only repositories cannot be imported.
-- TARGET_WRITE_TOKEN requires target-repository Workflows read/write because GITHUB_TOKEN cannot import workflow-changing refs.
-- LFS skip/failure means its payload still needs transfer.
+- GitHub release assets are not Git refs and are not automatically copied by this workflow.
+- The source repositories have not been modified.
