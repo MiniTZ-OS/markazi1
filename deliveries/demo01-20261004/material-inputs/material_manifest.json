@@ -1,0 +1,62 @@
+{
+  "project": "ZombieTZ",
+  "prepared_utc": "2026-10-04",
+  "deployment_status": "not_applied_to_live_RTX",
+  "canonical_handoff_rule": "Attach these material inputs to the existing current Task/Run after a fresh binding read; do not create a duplicate task queue.",
+  "existing_master": "/Game/Environment/HarborNine/UpgradePack_20260930/Materials/M_HNUP_Surface",
+  "verified_existing_parameters": [
+    "BaseColorTex",
+    "NormalTex",
+    "ARMTex",
+    "UVScale",
+    "Tint",
+    "MetallicScale"
+  ],
+  "channel_contract": {
+    "base_color": "sRGB",
+    "normal": "linear, DirectX tangent-space convention",
+    "ARM": "linear R=AO G=roughness B=metallic"
+  },
+  "custom_primitive_data": {
+    "0": "Wetness",
+    "1": "Corrosion",
+    "scope": "primitive component, not independent per-instance values"
+  },
+  "generated_candidate": {
+    "path": "T_ZombieTZ_HarborConcrete_BaseColor_Candidate.png",
+    "width": 1254,
+    "height": 1254,
+    "sha256": "f2dc4549d0b416bc4e18deab8370cf1f173658b34d2d9d2a27e7715473f78303",
+    "type": "base_color_only",
+    "import_srgb": true,
+    "seamless_verified": false,
+    "matching_normal_and_ARM_available": false
+  },
+  "gap_status": [
+    {
+      "id": 1,
+      "name": "player presentation",
+      "state": "implementation_brief_ready_live_fix_unverified"
+    },
+    {
+      "id": 2,
+      "name": "environment surface/detail assignment",
+      "state": "implementation_brief_ready_live_fix_unverified"
+    },
+    {
+      "id": 3,
+      "name": "lighting and EV100 exposure",
+      "state": "implementation_brief_ready_live_fix_unverified"
+    },
+    {
+      "id": 4,
+      "name": "actual packaged shader platform",
+      "state": "implementation_brief_ready_live_fix_unverified"
+    },
+    {
+      "id": 5,
+      "name": "HUD backing and text readability",
+      "state": "implementation_brief_ready_live_fix_unverified"
+    }
+  ]
+}

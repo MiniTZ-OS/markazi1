@@ -1,0 +1,38 @@
+name: Publish Demo 01 RTX release
+
+on:
+  push:
+    paths:
+      - ".github/workflows/publish-demo01-20261004.yml"
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: write
+
+env:
+  PACKAGE_NAME: ZombieTZ-Demo01-Linux-20261004T145552Z.tar
+  PACKAGE_SHA256: 31bc49d600a20c7699dc8e826aa3619cb4599967ab074f5c67c32c9f681376e3
+  RELEASE_TAG: demo01-rtx-20261004-c35d317
+  SOURCE_COMMIT: c35d3177f261b25229f5c276ededf79b9ca36976
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download preserved package artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ZombieTZ-Demo01-Linux-20261004
+          path: .
+          run-id: 37212308448
+          github-token: ${{ github.token }}
+      - name: Verify exact package
+        run: echo "$PACKAGE_SHA256  $PACKAGE_NAME" | sha256sum -c -
+      - name: Publish release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          NOTES="ZombieTZ Demo 01 RTX delivery. Source commit: $SOURCE_COMMIT. UE 5.8.3. Integration 12/12 PASS. RTX soak 120s PASS. Packaged launch PASS. Real packaged R-key restart PASS. Package SHA-256: $PACKAGE_SHA256."
+          gh release view "$RELEASE_TAG" >/dev/null 2>&1 || gh release create "$RELEASE_TAG" --repo "${{ github.repository }}" --title "ZombieTZ Demo 01 RTX 2026-10-04" --notes "$NOTES"
+          gh release upload "$RELEASE_TAG" "$PACKAGE_NAME" --repo "${{ github.repository }}" --clobber

@@ -1,0 +1,62 @@
+name: Verify ZombieTZ clean source fallback
+
+on:
+  push:
+    paths:
+      - ".github/workflows/verify-zombietz-source-fallback.yml"
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+env:
+  SOURCE_NAME: ZombieTZ-Demo01-source-c35d3177f261b25229f5c276ededf79b9ca36976.bundle
+  SOURCE_SHA256: 96a32d4c9d4e266943434a0344b6c8dd8a7a605c2dc1ae3ee158ddb7e2275bad
+  SOURCE_COMMIT: c35d3177f261b25229f5c276ededf79b9ca36976
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download preserved clean source artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ZombieTZ-Demo01-source-c35d317
+          path: recovered
+          run-id: 37212308448
+          github-token: ${{ github.token }}
+
+      - name: Verify and clone clean source
+        run: |
+          set -euxo pipefail
+          cd recovered
+          ls -lah
+          test -f "$SOURCE_NAME"
+          echo "$SOURCE_SHA256  $SOURCE_NAME" | sha256sum -c -
+          BUNDLE_ABS="$(pwd)/$SOURCE_NAME"
+          GIT_LFS_SKIP_SMUDGE=1 git clone "$BUNDLE_ABS" ../ZombieTZ-clean
+          cd ../ZombieTZ-clean
+          git bundle verify "$BUNDLE_ABS"
+          test "$(git rev-parse HEAD)" = "$SOURCE_COMMIT"
+          git fsck --full
+          test -f BiellaGames.uproject
+          test -d Source/BiellaGames
+          {
+            echo "ZombieTZ clean source fallback verified"
+            echo "source_commit=$(git rev-parse HEAD)"
+            echo "source_bundle_sha256=$SOURCE_SHA256"
+            echo "project=$(pwd)/BiellaGames.uproject"
+            echo "source_files=$(find Source -type f | wc -l)"
+            echo "content_files=$(find Content -type f 2>/dev/null | wc -l)"
+            echo "lfs_pointer_files=$(grep -RIl '^version https://git-lfs.github.com/spec/v1' Content 2>/dev/null | wc -l)"
+            echo "verified_utc=$(date -u +%FT%TZ)"
+            echo "NOTE: clean fallback only; later levels-1-10/visual dirty delta must be overlaid from emergency recovery."
+          } | tee ../CLEAN_SOURCE_VERIFIED.txt
+
+      - name: Preserve verification manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: ZombieTZ-clean-source-verification-c35d317
+          path: CLEAN_SOURCE_VERIFIED.txt
+          retention-days: 90

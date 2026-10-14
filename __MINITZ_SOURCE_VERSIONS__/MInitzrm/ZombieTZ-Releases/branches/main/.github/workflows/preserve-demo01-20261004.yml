@@ -1,0 +1,56 @@
+# transfer-trigger: 2026-10-04T15:14Z
+name: Preserve Demo 01 RTX delivery
+
+on:
+  push:
+    paths:
+      - ".github/workflows/preserve-demo01-20261004.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  BASE_URL: https://seeking-often-always-keno.trycloudflare.com
+  PACKAGE_NAME: ZombieTZ-Demo01-Linux-20261004T145552Z.tar
+  PACKAGE_SHA256: 31bc49d600a20c7699dc8e826aa3619cb4599967ab074f5c67c32c9f681376e3
+  SOURCE_NAME: ZombieTZ-Demo01-source-c35d3177f261b25229f5c276ededf79b9ca36976.bundle
+  SOURCE_SHA256: 96a32d4c9d4e266943434a0344b6c8dd8a7a605c2dc1ae3ee158ddb7e2275bad
+  RELEASE_TAG: demo01-rtx-20261004-c35d317
+
+jobs:
+  preserve-package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download playable package
+        run: |
+          curl --fail --location --retry 8 --retry-delay 3 --connect-timeout 20 --max-time 2400 -o "$PACKAGE_NAME" "$BASE_URL/$PACKAGE_NAME"
+          echo "$PACKAGE_SHA256  $PACKAGE_NAME" | sha256sum -c -
+      - name: Preserve package as Actions artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ZombieTZ-Demo01-Linux-20261004
+          path: ${{ env.PACKAGE_NAME }}
+          compression-level: 0
+          retention-days: 90
+      - name: Publish release package
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$RELEASE_TAG" >/dev/null 2>&1 || gh release create "$RELEASE_TAG" --repo "${{ github.repository }}" --title "ZombieTZ Demo 01 RTX 2026-10-04" --notes-file deliveries/demo01-20261004/README.md
+          gh release upload "$RELEASE_TAG" "$PACKAGE_NAME" --repo "${{ github.repository }}" --clobber
+
+  preserve-source:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download complete Git bundle
+        run: |
+          curl --fail --location --retry 8 --retry-delay 3 --connect-timeout 20 --max-time 2400 -o "$SOURCE_NAME" "$BASE_URL/$SOURCE_NAME"
+          echo "$SOURCE_SHA256  $SOURCE_NAME" | sha256sum -c -
+      - name: Preserve source as Actions artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ZombieTZ-Demo01-source-c35d317
+          path: ${{ env.SOURCE_NAME }}
+          compression-level: 0
+          retention-days: 90

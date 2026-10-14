@@ -1,0 +1,80 @@
+name: Publish Demo 01 RTX release
+
+on:
+  push:
+    paths:
+      - ".github/workflows/publish-demo01-20261004.yml"
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: write
+
+env:
+  PACKAGE_NAME: ZombieTZ-Demo01-Linux-20261004T145552Z.tar
+  PACKAGE_SHA256: 31bc49d600a20c7699dc8e826aa3619cb4599967ab074f5c67c32c9f681376e3
+  RELEASE_TAG: demo01-rtx-20261004-c35d317
+  SOURCE_COMMIT: c35d3177f261b25229f5c276ededf79b9ca36976
+  SOURCE_NAME: ZombieTZ-Demo01-source-c35d3177f261b25229f5c276ededf79b9ca36976.bundle
+  SOURCE_SHA256: 96a32d4c9d4e266943434a0344b6c8dd8a7a605c2dc1ae3ee158ddb7e2275bad
+
+jobs:
+  publish:
+    # Preserve manual package publication; workflow-file pushes recover source only.
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download preserved package artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ZombieTZ-Demo01-Linux-20261004
+          path: .
+          run-id: 37212308448
+          github-token: ${{ github.token }}
+      - name: Verify exact package
+        run: echo "$PACKAGE_SHA256  $PACKAGE_NAME" | sha256sum -c -
+      - name: Publish release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          NOTES="ZombieTZ Demo 01 RTX delivery. Source commit: $SOURCE_COMMIT. UE 5.8.3. Integration 12/12 PASS. RTX soak 120s PASS. Packaged launch PASS. Real packaged R-key restart PASS. Package SHA-256: $PACKAGE_SHA256."
+          gh release view "$RELEASE_TAG" >/dev/null 2>&1 || gh release create "$RELEASE_TAG" --repo "${{ github.repository }}" --title "ZombieTZ Demo 01 RTX 2026-10-04" --notes "$NOTES"
+          gh release upload "$RELEASE_TAG" "$PACKAGE_NAME" --repo "${{ github.repository }}" --clobber
+
+  recover-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Download preserved Demo 01 source artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ZombieTZ-Demo01-source-c35d317
+          path: .
+          run-id: 37212308448
+          github-token: ${{ github.token }}
+      - name: Verify exact self-contained Demo 01 source bundle
+        run: |
+          set -euo pipefail
+          echo "$SOURCE_SHA256  $SOURCE_NAME" | sha256sum -c -
+          VERIFY_ROOT="$(mktemp -d "$RUNNER_TEMP/zombietz-demo01-bundle.XXXXXX")"
+          git init --bare "$VERIFY_ROOT" >/dev/null
+          git -C "$VERIFY_ROOT" bundle verify "$GITHUB_WORKSPACE/$SOURCE_NAME"
+          git bundle list-heads "$SOURCE_NAME" |
+            awk -v expected="$SOURCE_COMMIT" '$1 == expected { found = 1 } END { exit !found }'
+          git -C "$VERIFY_ROOT" bundle unbundle "$GITHUB_WORKSPACE/$SOURCE_NAME" >/dev/null
+          git -C "$VERIFY_ROOT" cat-file -e "$SOURCE_COMMIT^{commit}"
+      - name: Publish verified source to the existing Demo 01 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # Read the existing release; never create a release or replace an existing asset.
+          ASSET_QUERY='.assets[] | select(.name == "ZombieTZ-Demo01-source-c35d3177f261b25229f5c276ededf79b9ca36976.bundle") | .digest'
+          EXISTING_DIGEST="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" --jq "$ASSET_QUERY")"
+          if [[ -n "$EXISTING_DIGEST" ]]; then
+            test "$EXISTING_DIGEST" = "sha256:$SOURCE_SHA256"
+          else
+            gh release upload "$RELEASE_TAG" "$SOURCE_NAME" --repo "$GITHUB_REPOSITORY"
+          fi
+          PUBLISHED_DIGEST="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" --jq "$ASSET_QUERY")"
+          test "$PUBLISHED_DIGEST" = "sha256:$SOURCE_SHA256"
