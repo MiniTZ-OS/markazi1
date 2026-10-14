@@ -1,0 +1,156 @@
+{
+  "schema_version": 1,
+  "target": "MMLabsAI/markazi1",
+  "discovered_source_accounts": [
+    "MahdiTT96",
+    "MMLabsAI",
+    "mataghdisi96-source"
+  ],
+  "note": "Explicit repository inventory from connected accounts on 2026-10-14. Runtime discovery adds repositories visible to configured per-account source tokens. The third connected account returned zero repositories through the connector inventory.",
+  "sources": [
+    {
+      "owner": "MMLabsAI",
+      "repo": "MiniTZ",
+      "full_name": "MMLabsAI/MiniTZ",
+      "default_branch": "main",
+      "visibility": "public",
+      "token_env": null
+    },
+    {
+      "owner": "taghdisilabs-digital",
+      "repo": "demo-repository",
+      "full_name": "taghdisilabs-digital/demo-repository",
+      "default_branch": "main",
+      "visibility": "private",
+      "token_env": "SOURCE_TOKEN_MMLABSAI"
+    },
+    {
+      "owner": "taghdisilabs-digital",
+      "repo": "MiniTZ-Playable-Linux-D08",
+      "full_name": "taghdisilabs-digital/MiniTZ-Playable-Linux-D08",
+      "default_branch": "main",
+      "visibility": "public",
+      "token_env": null
+    },
+    {
+      "owner": "taghdisilabs-digital",
+      "repo": "v1OS",
+      "full_name": "taghdisilabs-digital/v1OS",
+      "default_branch": "main",
+      "visibility": "public",
+      "token_env": null
+    },
+    {
+      "owner": "taghdisilabs-digital",
+      "repo": "tree",
+      "full_name": "taghdisilabs-digital/tree",
+      "default_branch": "main",
+      "visibility": "private",
+      "token_env": "SOURCE_TOKEN_MMLABSAI"
+    },
+    {
+      "owner": "MInitzrm",
+      "repo": "TaghdisiLabs",
+      "full_name": "MInitzrm/TaghdisiLabs",
+      "default_branch": "main",
+      "visibility": "public",
+      "token_env": null
+    },
+    {
+      "owner": "MInitzrm",
+      "repo": "crzcode",
+      "full_name": "MInitzrm/crzcode",
+      "default_branch": "main",
+      "visibility": "public",
+      "token_env": null
+    },
+    {
+      "owner": "MInitzrm",
+      "repo": "MiniTZCTO",
+      "full_name": "MInitzrm/MiniTZCTO",
+      "default_branch": "main",
+      "visibility": "private",
+      "token_env": "SOURCE_TOKEN_MAHDITT96"
+    },
+    {
+      "owner": "MInitzrm",
+      "repo": "MiniTZ",
+      "full_name": "MInitzrm/MiniTZ",
+      "default_branch": "main",
+      "visibility": "private",
+      "token_env": "SOURCE_TOKEN_MAHDITT96"
+    },
+    {
+      "owner": "MInitzrm",
+      "repo": "biella-engine",
+      "full_name": "MInitzrm/biella-engine",
+      "default_branch": "main",
+      "visibility": "private",
+      "token_env": "SOURCE_TOKEN_MAHDITT96"
+    },
+    {
+      "owner": "MInitzrm",
+      "repo": "biella-games",
+      "full_name": "MInitzrm/biella-games",
+      "default_branch": "main",
+      "visibility": "private",
+      "token_env": "SOURCE_TOKEN_MAHDITT96"
+    },
+    {
+      "owner": "MInitzrm",
+      "repo": "capability_preparation",
+      "full_name": "MInitzrm/capability_preparation",
+      "default_branch": "main",
+      "visibility": "private",
+      "token_env": "SOURCE_TOKEN_MAHDITT96"
+    },
+    {
+      "owner": "MInitzrm",
+      "repo": "biella",
+      "full_name": "MInitzrm/biella",
+      "default_branch": "main",
+      "visibility": "private",
+      "token_env": "SOURCE_TOKEN_MAHDITT96"
+    },
+    {
+      "owner": "MInitzrm",
+      "repo": "ZombieTZ-Releases",
+      "full_name": "MInitzrm/ZombieTZ-Releases",
+      "default_branch": "main",
+      "visibility": "public",
+      "token_env": null
+    },
+    {
+      "owner": "MInitzrm",
+      "repo": "MiniTZOS-preboot",
+      "full_name": "MInitzrm/MiniTZOS-preboot",
+      "default_branch": "main",
+      "visibility": "private",
+      "token_env": "SOURCE_TOKEN_MAHDITT96"
+    },
+    {
+      "owner": "MInitzrm",
+      "repo": "MiniTZOS-booted",
+      "full_name": "MInitzrm/MiniTZOS-booted",
+      "default_branch": "main",
+      "visibility": "private",
+      "token_env": "SOURCE_TOKEN_MAHDITT96"
+    },
+    {
+      "owner": "MiniTZOS",
+      "repo": "MiniTZOS",
+      "full_name": "MiniTZOS/MiniTZOS",
+      "default_branch": "main",
+      "visibility": "private",
+      "token_env": "SOURCE_TOKEN_MMLABSAI"
+    },
+    {
+      "owner": "MiniTZOS",
+      "repo": "minitz-os-final",
+      "full_name": "MiniTZOS/minitz-os-final",
+      "default_branch": "main",
+      "visibility": "private",
+      "token_env": "SOURCE_TOKEN_MMLABSAI"
+    }
+  ]
+}
