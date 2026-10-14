@@ -93,6 +93,7 @@ def make_tree(mapping):
         if rc: raise RuntimeError("mktree failed: "+err[-500:])
         return data.decode().strip()
     return emit(root)
+FAILED_REFS=[]
 def push_refs(specs,tok):
     ok=0
     for i in range(0,len(specs),25):
@@ -100,7 +101,9 @@ def push_refs(specs,tok):
         if not rc: ok+=len(batch); continue
         for spec in batch:
             _,one,detail=git(["push","--porcelain","origin",spec],token=tok,raw=True,check=False)
-            if one: COUNT["ref_push_failures"]+=1
+            if one:
+                COUNT["ref_push_failures"]+=1
+                FAILED_REFS.append({"refspec":spec,"error":detail[-500:]})
             else: ok+=1
     return ok
 base=git(["rev-parse","refs/heads/main"])
@@ -115,7 +118,7 @@ This repository consolidates tracked working-tree content and recoverable Git hi
 - Source tags use source-tags/OWNER/REPOSITORY/TAG. Pull-request refs use source-pulls/OWNER/REPOSITORY/NUMBER/TYPE.
 - Original source repositories are read-only inputs. Only MMLabsAI/markazi1 is written.
 
-For private sources, add the secrets SOURCE_TOKEN_MAHDITT96, SOURCE_TOKEN_MMLABSAI and SOURCE_TOKEN_MATAGHDISI96_SOURCE with read access to the corresponding accounts' source repos, including Git LFS. See IMPORT_REPORT.md for evidence and omissions.
+For private sources, add the secrets SOURCE_TOKEN_MAHDITT96, SOURCE_TOKEN_MMLABSAI and SOURCE_TOKEN_MATAGHDISI96_SOURCE with read access to the corresponding accounts' source repos, including Git LFS. Add TARGET_WRITE_TOKEN for a token with Contents read/write and Workflows read/write on this target repository; the default Actions token cannot import commits that change workflow files. See IMPORT_REPORT.md for evidence and omissions.
 """
 ro=git(["hash-object","-w","--stdin"],raw=True,input_data=README.encode())[0].decode().strip()
 old=PATHS.get(b"README.md")
@@ -189,12 +192,13 @@ lines += ["","## Private repositories skipped"]+["- "+x for x in SKIPPED]
 lines += ["","## Token errors"]+[f"- {k}: {v}" for k,v in TOKEN_ERRORS.items()]
 lines += ["","## Repository results","","| Repository | Status | Branches | Tags | PR refs | Trees | LFS |","|---|---|---:|---:|---:|---:|---|"]
 for x in RESULTS: lines.append("| {} | {} | {} | {} | {} | {} | {} |".format(x.get("repo"),x.get("status"),x.get("branches",0),x.get("tags",0),x.get("pull_refs",0),x.get("trees",0),x.get("lfs","—")))
-lines += ["","## Known omissions","- GitHub release assets are not Git refs and are not copied by this workflow.","- A missing source token means that private repository and any additional account-only repositories cannot be imported.","- LFS skip/failure means its payload still needs transfer."]
+lines += ["","## Ref push failures"] + ["- {}: {}".format(x["refspec"],x["error"].replace("|","/")) for x in FAILED_REFS[:30]]
+lines += ["","## Known omissions","- GitHub release assets are not Git refs and are not copied by this workflow.","- A missing source token means that private repository and any additional account-only repositories cannot be imported.","- TARGET_WRITE_TOKEN requires target-repository Workflows read/write because GITHUB_TOKEN cannot import workflow-changing refs.","- LFS skip/failure means its payload still needs transfer."]
 report_oid=git(["hash-object","-w","--stdin"],raw=True,input_data=("\n".join(lines)+"\n").encode())[0].decode().strip()
 add(b"IMPORT_REPORT.md",("100644","blob",report_oid),True)
 newtree=make_tree(PATHS)
 newcommit=git(["commit-tree",newtree,"-p",base,"-m","Consolidate accessible repository refs and working trees"])
 git(["update-ref","refs/heads/main",newcommit,base])
-_,rc,err=git(["push","origin","refs/heads/main:refs/heads/main"],token=os.environ.get("GITHUB_TOKEN",""),raw=True,check=False)
+_,rc,err=git(["push","origin","refs/heads/main:refs/heads/main"],token=os.environ.get("TARGET_WRITE_TOKEN","").strip() or os.environ.get("GITHUB_TOKEN",""),raw=True,check=False)
 if rc: print("MAIN_PUSH_FAILED: "+err[-1400:],file=sys.stderr); sys.exit(2)
 print(json.dumps({"result":"COMPLETE" if full_complete else "PARTIAL","counts":COUNT,"skipped_private":SKIPPED,"missing_secrets":missing,"token_errors":TOKEN_ERRORS,"repositories":RESULTS},indent=2))
