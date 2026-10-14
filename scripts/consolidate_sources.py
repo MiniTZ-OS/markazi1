@@ -129,10 +129,10 @@ for src in sorted(S.values(),key=lambda x:x["full_name"].lower()):
     full=src["full_name"]
     if full.lower()==TARGET.lower(): continue
     owner,repo=src["owner"],src["repo"]; tenv=src.get("token_env"); tok=TOKENS.get(tenv) if tenv else None
-    if src.get("visibility")=="private" and not tok:
+    if src.get("visibility")=="private" and not tok and not os.environ.get("SSH_AUTH_SOCK"):
         SKIPPED.append(full); RESULTS.append({"repo":full,"status":"SKIPPED_MISSING_TOKEN","secret":tenv}); continue
     slug=hashlib.sha256(full.lower().encode()).hexdigest()[:12]; rem="src_"+slug; tr="tag_"+slug; pr="pr_"+slug
-    git(["remote","add",rem,src.get("clone_url") or "https://github.com/"+full+".git"],check=False)
+    git(["remote","add",rem,"git@github.com:"+full+".git"],check=False)
     bp="refs/remotes/"+rem+"/"; tp="refs/remotes/"+tr+"/"; pp="refs/remotes/"+pr+"/"
     _,rc,err=git(["fetch","--no-tags","--no-recurse-submodules",rem,"+refs/heads/*:"+bp+"*","+refs/tags/*:"+tp+"*"],token=tok,raw=True,check=False)
     if rc: RESULTS.append({"repo":full,"status":"FETCH_FAILED","detail":err[-250:]}); continue
@@ -183,7 +183,7 @@ for src in sorted(S.values(),key=lambda x:x["full_name"].lower()):
     COUNT["trees"]+=tn; COUNT["tree_entries"]+=fn
     state="IMPORTED" if pushed==len(specs) and not errs and lfs=="uploaded" else "PARTIAL"
     RESULTS.append({"repo":full,"status":state,"branches":len(br),"tags":len(tags),"pull_refs":len(pulls),"refs_pushed":pushed,"expected_refs":len(specs),"trees":tn,"entries":fn,"lfs":lfs,"tree_errors":errs[:8],"pull_notes":pull_notes})
-missing=sorted([v for v in TOKEN_VARS.values() if v not in TOKENS] + ([] if os.environ.get("TARGET_WRITE_TOKEN","").strip() else ["TARGET_WRITE_TOKEN"]))
+missing=[] if os.environ.get("SSH_AUTH_SOCK") else ["SSH_PRIVATE_KEY"]
 full_complete=not SKIPPED and not missing and not TOKEN_ERRORS and not COUNT["ref_push_failures"] and not COUNT["lfs_failures"] and all(x.get("status")=="IMPORTED" for x in RESULTS)
 lines=["# Import Report","",f"Run result: {'COMPLETE' if full_complete else 'PARTIAL'}","",f"Target: {TARGET}"]
 lines += [f"{k.replace('_',' ')}: {v}" for k,v in COUNT.items()]
@@ -193,7 +193,7 @@ lines += ["","## Token errors"]+[f"- {k}: {v}" for k,v in TOKEN_ERRORS.items()]
 lines += ["","## Repository results","","| Repository | Status | Branches | Tags | PR refs | Trees | LFS |","|---|---|---:|---:|---:|---:|---|"]
 for x in RESULTS: lines.append("| {} | {} | {} | {} | {} | {} | {} |".format(x.get("repo"),x.get("status"),x.get("branches",0),x.get("tags",0),x.get("pull_refs",0),x.get("trees",0),x.get("lfs","—")))
 lines += ["","## Ref push failures"] + ["- {}: {}".format(x["refspec"],x["error"].replace("|","/")) for x in FAILED_REFS[:30]]
-lines += ["","## Known omissions","- GitHub release assets are not Git refs and are not copied by this workflow.","- A missing source token means that private repository and any additional account-only repositories cannot be imported.","- TARGET_WRITE_TOKEN requires target-repository Workflows read/write because GITHUB_TOKEN cannot import workflow-changing refs.","- LFS skip/failure means its payload still needs transfer."]
+lines += ["","## Known omissions","- GitHub release assets are not Git refs and are not copied by this workflow.","- SSH authentication is used for private source repositories and target Git pushes when the SSH key is loaded.","- TARGET_WRITE_TOKEN requires target-repository Workflows read/write because GITHUB_TOKEN cannot import workflow-changing refs.","- LFS skip/failure means its payload still needs transfer."]
 report_oid=git(["hash-object","-w","--stdin"],raw=True,input_data=("\n".join(lines)+"\n").encode())[0].decode().strip()
 add(b"IMPORT_REPORT.md",("100644","blob",report_oid),True)
 newtree=make_tree(PATHS)
