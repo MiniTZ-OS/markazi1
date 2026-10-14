@@ -1,289 +1,200 @@
 #!/usr/bin/env python3
-"""Import source refs verbatim and unite their tracked trees in main."""
-import base64, hashlib, json, os, shutil, subprocess, sys, urllib.request
+"""Preserve accessible Git refs and unite tracked working trees into markazi1/main."""
+import base64,hashlib,json,os,shutil,subprocess,sys,urllib.request
 from pathlib import Path
-
 ROOT=Path(os.environ["GITHUB_WORKSPACE"]).resolve()
 TARGET=os.environ.get("GITHUB_REPOSITORY","MMLabsAI/markazi1")
 RESERVED=b"__MINITZ_SOURCE_VERSIONS__"
-TOKEN_NAMES={"MahdiTT96":"SOURCE_TOKEN_MAHDITT96","MMLabsAI":"SOURCE_TOKEN_MMLABSAI","mataghdisi96-source":"SOURCE_TOKEN_MATAGHDISI96_SOURCE"}
-for k,v in {"GIT_AUTHOR_NAME":"MiniTZ Consolidation Bot","GIT_AUTHOR_EMAIL":"41898282+github-actions[bot]@users.noreply.github.com","GIT_COMMITTER_NAME":"MiniTZ Consolidation Bot","GIT_COMMITTER_EMAIL":"41898282+github-actions[bot]@users.noreply.github.com"}.items():
-    os.environ.setdefault(k,v)
-COUNTS={"repos_ok":0,"branch_refs":0,"tag_refs":0,"pull_refs":0,"tree_refs":0,"tree_entries":0,"root_files_added":0,"source_versions_added":0,"push_failures":0,"lfs_failures":0}
-ERRORS=[]
-
+TOKEN_VARS={"MahdiTT96":"SOURCE_TOKEN_MAHDITT96","MMLabsAI":"SOURCE_TOKEN_MMLABSAI","mataghdisi96-source":"SOURCE_TOKEN_MATAGHDISI96_SOURCE"}
+for k,v in {"GIT_AUTHOR_NAME":"MiniTZ Consolidation Bot","GIT_AUTHOR_EMAIL":"41898282+github-actions[bot]@users.noreply.github.com","GIT_COMMITTER_NAME":"MiniTZ Consolidation Bot","GIT_COMMITTER_EMAIL":"41898282+github-actions[bot]@users.noreply.github.com"}.items(): os.environ.setdefault(k,v)
+COUNT={"branches":0,"tags":0,"pull_refs":0,"trees":0,"tree_entries":0,"unique_paths_added":0,"conflict_versions_added":0,"ref_push_failures":0,"lfs_failures":0}
 def git(args,token=None,raw=False,check=True,input_data=None):
-    env=os.environ.copy()
-    env["GIT_TERMINAL_PROMPT"]="0"
+    env=os.environ.copy(); env["GIT_TERMINAL_PROMPT"]="0"
     if token:
         enc=base64.b64encode(("x-access-token:"+token).encode()).decode()
-        env["GIT_CONFIG_COUNT"]="1"; env["GIT_CONFIG_KEY_0"]="http.https://github.com/.extraheader"
-        env["GIT_CONFIG_VALUE_0"]="AUTHORIZATION: basic "+enc
+        env["GIT_CONFIG_COUNT"]="1"; env["GIT_CONFIG_KEY_0"]="http.https://github.com/.extraheader"; env["GIT_CONFIG_VALUE_0"]="AUTHORIZATION: basic "+enc
     p=subprocess.run(["git",*args],cwd=ROOT,env=env,input=input_data,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
-    if check and p.returncode:
-        raise RuntimeError("git "+" ".join(args[:4])+" failed: "+p.stderr.decode("utf-8","replace")[-1200:])
-    if raw:
-        return p.stdout,p.returncode,p.stderr.decode("utf-8","replace")
-    return p.stdout.decode("utf-8","surrogateescape").strip()
-
-def api(url,token):
-    req=urllib.request.Request(url,headers={"Authorization":"Bearer "+token,"Accept":"application/vnd.github+json","X-GitHub-Api-Version":"2022-11-28","User-Agent":"MiniTZ-markazi1-consolidator"})
-    with urllib.request.urlopen(req,timeout=30) as r:
-        return json.load(r)
-
-manifest=json.loads((ROOT/"sources.json").read_text(encoding="utf-8"))
-SOURCES={x["full_name"].lower():dict(x) for x in manifest["sources"]}
+    if check and p.returncode: raise RuntimeError("git "+" ".join(args[:4])+" failed: "+p.stderr.decode("utf-8","replace")[-800:])
+    return (p.stdout,p.returncode,p.stderr.decode("utf-8","replace")) if raw else p.stdout.decode("utf-8","surrogateescape").strip()
+def api(url,tok):
+    req=urllib.request.Request(url,headers={"Authorization":"Bearer "+tok,"Accept":"application/vnd.github+json","X-GitHub-Api-Version":"2022-11-28","User-Agent":"MiniTZ-markazi1"})
+    with urllib.request.urlopen(req,timeout=30) as r: return json.load(r)
+MAN=json.loads((ROOT/"sources.json").read_text())
+S={x["full_name"].lower():dict(x) for x in MAN["sources"]}
 TOKENS={}; TOKEN_ERRORS={}
-# Verify configured token identity, then enumerate all repositories visible to each source account.
-for account,var in TOKEN_NAMES.items():
-    token=os.environ.get(var,"").strip()
-    if not token: continue
+for account,var in TOKEN_VARS.items():
+    tok=os.environ.get(var,"").strip()
+    if not tok: continue
     try:
-        who=api("https://api.github.com/user",token).get("login","")
-        if str(who).lower()!=account.lower():
-            TOKEN_ERRORS[var]=f"identity mismatch: expected {account}, received {who or 'unknown'}"; continue
-        TOKENS[var]=token
-        page=1
+        login=api("https://api.github.com/user",tok).get("login","")
+        if str(login).lower()!=account.lower(): TOKEN_ERRORS[var]=f"identity mismatch; expected {account}, got {login}"; continue
+        TOKENS[var]=tok; page=1
         while True:
-            url="https://api.github.com/user/repos?visibility=all&affiliation=owner,collaborator,organization_member&per_page=100&page="+str(page)
-            try: items=api(url,token)
-            except Exception as e:
-                TOKEN_ERRORS.setdefault(var,"repo discovery unavailable: "+type(e).__name__); break
+            items=api("https://api.github.com/user/repos?visibility=all&affiliation=owner,collaborator,organization_member&per_page=100&page="+str(page),tok)
             if not isinstance(items,list) or not items: break
-            for item in items:
-                full=item.get("full_name","")
+            for x in items:
+                full=x.get("full_name","")
                 if not full or full.lower()==TARGET.lower(): continue
-                owner,repo=full.split("/",1)
-                old=SOURCES.get(full.lower())
-                if old is None:
-                    SOURCES[full.lower()]={"owner":owner,"repo":repo,"full_name":full,"default_branch":item.get("default_branch") or "main","visibility":"private" if item.get("private") else "public","token_env":var if item.get("private") else None}
-                elif item.get("private") and not old.get("token_env"):
-                    old["token_env"]=var; old["visibility"]="private"
+                owner,repo=full.split("/",1); old=S.get(full.lower())
+                if old is None: S[full.lower()]={"owner":owner,"repo":repo,"full_name":full,"default_branch":x.get("default_branch") or "main","visibility":"private" if x.get("private") else "public","token_env":var if x.get("private") else None}
+                elif x.get("private") and not old.get("token_env"): old["token_env"]=var; old["visibility"]="private"
             if len(items)<100: break
             page+=1
-    except Exception as e:
-        TOKEN_ERRORS[var]="token validation/discovery failed: "+type(e).__name__
-
-def refs(prefix):
-    return [x for x in git(["for-each-ref","--format=%(refname)",prefix]).splitlines() if x]
-
-def rev(ref): return git(["rev-parse",ref])
-
-def tree_entries(revision):
-    raw,rc,err=git(["ls-tree","-r","-z","--full-tree",revision],raw=True)
-    if rc: raise RuntimeError(err[-800:])
+    except Exception as e: TOKEN_ERRORS[var]=type(e).__name__+": "+str(e)[:120]
+def listrefs(prefix): return [r for r in git(["for-each-ref","--format=%(refname)",prefix]).splitlines() if r]
+def tree_entries(rev):
+    data,rc,err=git(["ls-tree","-r","-z","--full-tree",rev],raw=True)
+    if rc: raise RuntimeError(err[-500:])
     out=[]
-    for row in raw.split(b"\0"):
-        if not row: continue
-        meta,path=row.split(b"\t",1)
-        mode,typ,oid=meta.decode("ascii").split(" ")
+    for rec in data.split(b"\0"):
+        if not rec: continue
+        meta,path=rec.split(b"\t",1); mode,typ,oid=meta.decode().split()
         out.append((path,(mode,typ,oid)))
     return out
-
-# Keep existing target files and build trees from object IDs; no giant source worktrees are unpacked.
-entries={}; file_paths=set(); dir_paths=set()
-def add_entry(path,entry,replace=False):
+# All tree composition uses existing Git object IDs; it does not unpack large working trees.
+PATHS={}; FILES=set(); DIRS=set()
+def add(path,val,replace=False):
     if not path or path.startswith(b"/") or any(p in (b"",b".",b"..") for p in path.split(b"/")): return False
     parts=path.split(b"/")
-    if any(b"/".join(parts[:i]) in file_paths for i in range(1,len(parts))): return False
-    if path in dir_paths: return False
-    if path in entries and not replace: return entries[path]==entry
-    entries[path]=entry; file_paths.add(path)
-    for i in range(1,len(parts)): dir_paths.add(b"/".join(parts[:i]))
+    if path in DIRS or any(b"/".join(parts[:i]) in FILES for i in range(1,len(parts))): return False
+    if path in PATHS and not replace: return PATHS[path]==val
+    PATHS[path]=val; FILES.add(path)
+    for i in range(1,len(parts)): DIRS.add(b"/".join(parts[:i]))
     return True
-
-def can_place(path,entry):
-    if path in entries: return entries[path]==entry
+def possible(path,val):
+    if path in PATHS: return PATHS[path]==val
     parts=path.split(b"/")
-    return not any(b"/".join(parts[:i]) in file_paths for i in range(1,len(parts))) and path not in dir_paths
-
-def add_source(path,entry,owner,repo,label):
-    if not (path==RESERVED or path.startswith(RESERVED+b"/")) and can_place(path,entry):
-        if path not in entries:
-            add_entry(path,entry); COUNTS["root_files_added"]+=1
+    return path not in DIRS and not any(b"/".join(parts[:i]) in FILES for i in range(1,len(parts)))
+def merge_entry(path,val,owner,repo,label):
+    if not (path==RESERVED or path.startswith(RESERVED+b"/")) and possible(path,val):
+        if path not in PATHS: add(path,val); COUNT["unique_paths_added"]+=1
         return
     alt=RESERVED+b"/"+owner.encode()+b"/"+repo.encode()+b"/"+label.encode("utf-8","surrogateescape")+b"/"+path
-    if can_place(alt,entry):
-        if alt not in entries: add_entry(alt,entry); COUNTS["source_versions_added"]+=1
+    if possible(alt,val):
+        if alt not in PATHS: add(alt,val); COUNT["conflict_versions_added"]+=1
         return
-    mode,typ,oid=entry
-    fallback=RESERVED+b"/by-blob/"+oid[:2].encode()+b"/"+(oid+"-"+mode).encode()
-    if can_place(fallback,entry) and fallback not in entries:
-        add_entry(fallback,entry); COUNTS["source_versions_added"]+=1
-    elif fallback not in entries:
-        raise RuntimeError("cannot place conflicting blob "+oid)
-
-def build_tree(path_map):
+    mode,typ,oid=val; fallback=RESERVED+b"/by-blob/"+oid[:2].encode()+b"/"+(oid+"-"+mode).encode()
+    if fallback not in PATHS and possible(fallback,val): add(fallback,val); COUNT["conflict_versions_added"]+=1
+def make_tree(mapping):
     root={}
-    for path,entry in path_map.items():
-        node=root; pieces=path.split(b"/")
-        for p in pieces[:-1]: node=node.setdefault(p,{})
-        node[pieces[-1]]=entry
+    for path,val in mapping.items():
+        node=root; parts=path.split(b"/")
+        for p in parts[:-1]: node=node.setdefault(p,{})
+        node[parts[-1]]=val
     def emit(node):
         rows=[]
-        for name,value in node.items():
-            if isinstance(value,dict):
-                oid=emit(value); rows.append((name+b"/",b"040000 tree "+oid.encode()+b"\t"+name))
+        for name,val in node.items():
+            if isinstance(val,dict):
+                oid=emit(val); rows.append((name+b"/",b"040000 tree "+oid.encode()+b"\t"+name))
             else:
-                mode,typ,oid=value
-                rows.append((name+b"/" if typ=="tree" else name,(mode+" "+typ+" "+oid).encode()+b"\t"+name))
+                mode,typ,oid=val; rows.append((name+b"/" if typ=="tree" else name,(mode+" "+typ+" "+oid).encode()+b"\t"+name))
         rows.sort(key=lambda x:x[0])
-        payload=b"".join(row+b"\0" for _,row in rows)
-        out,rc,err=git(["mktree","-z"],raw=True,input_data=payload)
-        if rc: raise RuntimeError("mktree failed: "+err[-800:])
-        return out.decode().strip()
+        data,rc,err=git(["mktree","-z"],raw=True,input_data=b"".join(row+b"\0" for _,row in rows))
+        if rc: raise RuntimeError("mktree failed: "+err[-500:])
+        return data.decode().strip()
     return emit(root)
-
-def push_many(specs,token):
-    count=0
-    for i in range(0,len(specs),30):
-        batch=specs[i:i+30]
-        _,rc,err=git(["push","--porcelain","origin",*batch],token=token,raw=True,check=False)
-        if rc==0: count+=len(batch); continue
+def push_refs(specs,tok):
+    ok=0
+    for i in range(0,len(specs),25):
+        batch=specs[i:i+25]; _,rc,_=git(["push","--porcelain","origin",*batch],token=tok,raw=True,check=False)
+        if not rc: ok+=len(batch); continue
         for spec in batch:
-            _,one_rc,one_err=git(["push","--porcelain","origin",spec],token=token,raw=True,check=False)
-            if one_rc==0: count+=1
-            else:
-                COUNTS["push_failures"]+=1
-                ERRORS.append({"refspec":spec,"detail":one_err[-300:]})
-    return count
-
+            _,one,detail=git(["push","--porcelain","origin",spec],token=tok,raw=True,check=False)
+            if one: COUNT["ref_push_failures"]+=1
+            else: ok+=1
+    return ok
 base=git(["rev-parse","refs/heads/main"])
-for path,entry in tree_entries(git(["rev-parse",base+"^{tree}"])):
-    add_entry(path,entry)
-
+for p,v in tree_entries(git(["rev-parse",base+"^{tree}"])): add(p,v)
 README="""# MiniTZ Central Repository
 
-This repository consolidates recoverable Git history and working-tree content from repositories visible to the connected GitHub accounts.
+This repository consolidates tracked working-tree content and recoverable Git history from the connected GitHub accounts.
 
-## Structure and preservation
+- main contains unique paths from source branch, tag and pull-request trees at their original relative paths.
+- Conflicting versions are preserved under __MINITZ_SOURCE_VERSIONS__/OWNER/REPOSITORY/REF/PATH.
+- Original branch SHAs are retained under source-branches/OWNER/REPOSITORY/BRANCH; snapshots retain earlier branch tips.
+- Source tags use source-tags/OWNER/REPOSITORY/TAG. Pull-request refs use source-pulls/OWNER/REPOSITORY/NUMBER/TYPE.
+- Original source repositories are read-only inputs. Only MMLabsAI/markazi1 is written.
 
-- main contains the union of tracked working-tree paths. Unique paths stay at their original relative paths.
-- Conflicting versions are retained under __MINITZ_SOURCE_VERSIONS__/OWNER/REPOSITORY/REF/PATH.
-- Source branch SHAs are preserved under source-branches/OWNER/REPOSITORY/BRANCH.
-- Tags are preserved under source-tags/OWNER/REPOSITORY/TAG.
-- Pull-request head and merge refs are preserved under source-pulls/OWNER/REPOSITORY/NUMBER/TYPE.
-- Content-addressed snapshot refs retain earlier branch tips when a source branch is force-pushed.
-- Source repositories are read-only inputs. This workflow writes only to MMLabsAI/markazi1.
-
-## Private source access
-
-Add read-capable personal access tokens as these repository Actions secrets for the corresponding accounts: SOURCE_TOKEN_MAHDITT96, SOURCE_TOKEN_MMLABSAI, SOURCE_TOKEN_MATAGHDISI96_SOURCE. Tokens must be able to read the private repositories (including Git LFS). The workflow token writes only to this central repository.
-
-See IMPORT_REPORT.md for the latest evidence and outstanding omissions.
+For private sources, add the secrets SOURCE_TOKEN_MAHDITT96, SOURCE_TOKEN_MMLABSAI and SOURCE_TOKEN_MATAGHDISI96_SOURCE with read access to the corresponding accounts' source repos, including Git LFS. See IMPORT_REPORT.md for evidence and omissions.
 """
-readme_oid=git(["hash-object","-w","--stdin"],raw=True,input_data=README.encode())[0].decode().strip()
-old=entries.get(b"README.md")
-if old and old[2]!=readme_oid: add_source(b"README.md",old,"MMLabsAI","markazi1","bootstrap")
-add_entry(b"README.md",("100644","blob",readme_oid),replace=True)
-
-statuses=[]; missing_private=[]
-for src in sorted(SOURCES.values(),key=lambda s:s["full_name"].lower()):
+ro=git(["hash-object","-w","--stdin"],raw=True,input_data=README.encode())[0].decode().strip()
+old=PATHS.get(b"README.md")
+if old and old[2]!=ro: merge_entry(b"README.md",old,"MMLabsAI","markazi1","bootstrap")
+add(b"README.md",("100644","blob",ro),True)
+RESULTS=[]; SKIPPED=[]
+for src in sorted(S.values(),key=lambda x:x["full_name"].lower()):
     full=src["full_name"]
     if full.lower()==TARGET.lower(): continue
-    owner,repo=src["owner"],src["repo"]
-    token_env=src.get("token_env"); token=TOKENS.get(token_env) if token_env else None
-    if src.get("visibility")=="private" and not token:
-        missing_private.append(full)
-        statuses.append({"repository":full,"status":"SKIPPED_MISSING_SOURCE_TOKEN","secret":token_env}); continue
-    slug=hashlib.sha256(full.lower().encode()).hexdigest()[:12]
-    remote="src_"+slug; tag_remote="tag_"+slug; pull_remote="pr_"+slug
-    git(["remote","add",remote,src.get("clone_url") or "https://github.com/"+full+".git"],check=False)
-    bp="refs/remotes/"+remote+"/"; tp="refs/remotes/"+tag_remote+"/"; pp="refs/remotes/"+pull_remote+"/"
-    _,frc,ferr=git(["fetch","--no-tags","--no-recurse-submodules",remote,
-                     "+refs/heads/*:"+bp+"*","+refs/tags/*:"+tp+"*"],token=token,raw=True,check=False)
-    if frc:
-        statuses.append({"repository":full,"status":"FETCH_FAILED","detail":ferr[-800:]}); continue
+    owner,repo=src["owner"],src["repo"]; tenv=src.get("token_env"); tok=TOKENS.get(tenv) if tenv else None
+    if src.get("visibility")=="private" and not tok:
+        SKIPPED.append(full); RESULTS.append({"repo":full,"status":"SKIPPED_MISSING_TOKEN","secret":tenv}); continue
+    slug=hashlib.sha256(full.lower().encode()).hexdigest()[:12]; rem="src_"+slug; tr="tag_"+slug; pr="pr_"+slug
+    git(["remote","add",rem,src.get("clone_url") or "https://github.com/"+full+".git"],check=False)
+    bp="refs/remotes/"+rem+"/"; tp="refs/remotes/"+tr+"/"; pp="refs/remotes/"+pr+"/"
+    _,rc,err=git(["fetch","--no-tags","--no-recurse-submodules",rem,"+refs/heads/*:"+bp+"*","+refs/tags/*:"+tp+"*"],token=tok,raw=True,check=False)
+    if rc: RESULTS.append({"repo":full,"status":"FETCH_FAILED","detail":err[-250:]}); continue
     pull_notes=[]
     for spec in ["+refs/pull/*/head:"+pp+"*/head","+refs/pull/*/merge:"+pp+"*/merge"]:
-        _,rc,err=git(["fetch","--no-tags",remote,spec],token=token,raw=True,check=False)
-        if rc and err.strip(): pull_notes.append(err.strip()[-200:])
-    branch_refs=refs(bp); tag_refs=refs(tp); pull_refs=refs(pp)
-    COUNTS["branch_refs"]+=len(branch_refs); COUNTS["tag_refs"]+=len(tag_refs); COUNTS["pull_refs"]+=len(pull_refs)
-    push_list=[]; source_trees=[]; default=src.get("default_branch") or "main"
-    for ref in branch_refs:
-        name=ref[len(bp):]; oid=rev(ref)
-        push_list.extend(["+"+oid+f":refs/heads/source-branches/{owner}/{repo}/{name}",
-                          oid+f":refs/heads/source-snapshots/{owner}/{repo}/{name}/{oid}"])
-        source_trees.append((ref,"branches/"+name,0 if name==default else 1))
-    for ref in tag_refs:
-        name=ref[len(tp):]; oid=rev(ref)
-        push_list.extend(["+"+oid+f":refs/tags/source-tags/{owner}/{repo}/{name}",
-                          oid+f":refs/tags/source-tag-snapshots/{owner}/{repo}/{name}/{oid}"])
-        source_trees.append((ref,"tags/"+name,3))
-    for ref in pull_refs:
-        name=ref[len(pp):]; oid=rev(ref)
-        push_list.extend(["+"+oid+f":refs/heads/source-pulls/{owner}/{repo}/{name}",
-                          oid+f":refs/heads/source-pull-snapshots/{owner}/{repo}/{name}/{oid}"])
-        source_trees.append((ref,"pulls/"+name,2))
-    pushed=push_many(push_list,os.environ.get("GITHUB_TOKEN","")) if push_list else 0
-
-    # Transfer LFS payloads where the runner has sufficient free disk; ref transfer is independent.
+        _,prc,pe=git(["fetch","--no-tags",rem,spec],token=tok,raw=True,check=False)
+        if prc and pe.strip(): pull_notes.append(pe.strip()[-120:])
+    br=listrefs(bp); tags=listrefs(tp); pulls=listrefs(pp)
+    COUNT["branches"]+=len(br); COUNT["tags"]+=len(tags); COUNT["pull_refs"]+=len(pulls)
+    specs=[]; trees=[]; default=src.get("default_branch") or "main"
+    for r in br:
+        name=r[len(bp):]; oid=git(["rev-parse",r])
+        specs += ["+"+oid+f":refs/heads/source-branches/{owner}/{repo}/{name}",oid+f":refs/heads/source-snapshots/{owner}/{repo}/{name}/{oid}"]
+        trees.append((r,"branches/"+name,0 if name==default else 1))
+    for r in tags:
+        name=r[len(tp):]; oid=git(["rev-parse",r])
+        specs += ["+"+oid+f":refs/tags/source-tags/{owner}/{repo}/{name}",oid+f":refs/tags/source-tag-snapshots/{owner}/{repo}/{name}/{oid}"]
+        trees.append((r,"tags/"+name,3))
+    for r in pulls:
+        name=r[len(pp):]; oid=git(["rev-parse",r])
+        specs += ["+"+oid+f":refs/heads/source-pulls/{owner}/{repo}/{name}",oid+f":refs/heads/source-pull-snapshots/{owner}/{repo}/{name}/{oid}"]
+        trees.append((r,"pulls/"+name,2))
+    pushed=push_refs(specs,os.environ.get("GITHUB_TOKEN","")) if specs else 0
     lfs="not_checked"
     try:
-        probe=subprocess.run(["git","lfs","version"],cwd=ROOT,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+        probe=subprocess.run(["git","lfs","version"],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
         if probe.returncode: lfs="git-lfs unavailable"
-        elif shutil.disk_usage(ROOT).free < 3*1024**3: lfs="skipped: less than 3 GiB free"
+        elif shutil.disk_usage(ROOT).free<3*1024**3: lfs="skipped-low-disk"
         else:
-            _,lrc,lerr=git(["lfs","fetch","--all",remote],token=token,raw=True,check=False)
-            if lrc:
-                lfs="fetch failed: "+lerr[-250:]; COUNTS["lfs_failures"]+=1
+            _,lr,le=git(["lfs","fetch","--all",rem],token=tok,raw=True,check=False)
+            if lr: lfs="fetch-failed"; COUNT["lfs_failures"]+=1
             else:
-                refnames=[r for r,_,_ in source_trees]
-                uploaded=True
-                for i in range(0,len(refnames),25):
-                    _,prc,perr=git(["lfs","push","--all","origin",*refnames[i:i+25]],token=os.environ.get("GITHUB_TOKEN",""),raw=True,check=False)
-                    if prc:
-                        uploaded=False; lfs="push failed: "+perr[-250:]; COUNTS["lfs_failures"]+=1; break
-                if uploaded: lfs="uploaded for imported refs"
-            shutil.rmtree(ROOT/".git"/"lfs"/"objects",ignore_errors=True)
-            (ROOT/".git"/"lfs"/"objects").mkdir(parents=True,exist_ok=True)
-    except Exception as exc:
-        lfs="error: "+type(exc).__name__; COUNTS["lfs_failures"]+=1
-
-    tree_n=0; file_n=0; tree_errors=[]
-    source_trees.sort(key=lambda x:(x[2],x[1]))
-    for ref,label,_ in source_trees:
-        commit=git(["rev-parse",ref+"^{commit}"],check=False)
+                ok=True
+                for i in range(0,len(trees),25):
+                    _,prc,_=git(["lfs","push","--all","origin",*[x[0] for x in trees[i:i+25]]],token=os.environ.get("GITHUB_TOKEN",""),raw=True,check=False)
+                    if prc: ok=False; lfs="push-failed"; COUNT["lfs_failures"]+=1; break
+                if ok: lfs="uploaded"
+            shutil.rmtree(ROOT/".git"/"lfs"/"objects",ignore_errors=True); (ROOT/".git"/"lfs"/"objects").mkdir(parents=True,exist_ok=True)
+    except Exception: lfs="error"; COUNT["lfs_failures"]+=1
+    trees.sort(key=lambda x:(x[2],x[1])); tn=0; fn=0; errs=[]
+    for r,label,_ in trees:
+        commit=git(["rev-parse",r+"^{commit}"],check=False)
         if not commit: continue
         try:
-            for path,entry in tree_entries(commit):
-                add_source(path,entry,owner,repo,label); file_n+=1
-            tree_n+=1
-        except Exception as exc:
-            tree_errors.append(label+": "+type(exc).__name__+": "+str(exc)[:250])
-    COUNTS["tree_refs"]+=tree_n; COUNTS["tree_entries"]+=file_n; COUNTS["repos_ok"]+=1
-    bad_lfs=lfs.startswith(("fetch failed","push failed","skipped","error","git-lfs"))
-    status="IMPORTED" if pushed==len(push_list) and not tree_errors and not bad_lfs else "PARTIAL"
-    statuses.append({"repository":full,"status":status,"branches":len(branch_refs),"tags":len(tag_refs),
-        "pull_refs":len(pull_refs),"refs_pushed":pushed,"expected_refs":len(push_list),
-        "trees_merged":tree_n,"tree_entries":file_n,"lfs":lfs,"pull_notes":pull_notes,"tree_errors":tree_errors[:12]})
-
-missing_secrets=sorted(v for v in TOKEN_NAMES.values() if v not in TOKENS)
-complete=(not missing_private and not missing_secrets and not TOKEN_ERRORS and not COUNTS["push_failures"]
-          and not COUNTS["lfs_failures"] and all(s.get("status")=="IMPORTED" for s in statuses))
-result={"target":TARGET,"result":"COMPLETE" if complete else "PARTIAL",
-        "missing_secrets":missing_secrets,"private_repositories_skipped":sorted(missing_private),
-        "token_errors":TOKEN_ERRORS,"counts":COUNTS,"repositories":statuses,
-        "notes":["GitHub release assets are not Git refs and are not copied by this workflow.",
-                 "A third-account token is required for runtime discovery because its connected inventory returned zero repositories.",
-                 "A skipped or failed LFS transfer means the associated LFS payloads are still missing from the target."]}
-lines=["# Import Report","",f"**Run result: {result['result']}**","",f"- Target: {TARGET}"]
-for key,value in COUNTS.items(): lines.append(f"- {key.replace('_',' ')}: {value}")
-lines += ["","## Required secrets"]+[f"- {x}" for x in missing_secrets]
-lines += ["","## Private repositories skipped"]+[f"- {x} (needs {SOURCES[x.lower()].get('token_env')})" for x in sorted(missing_private)]
-lines += ["","## Token discovery"]+[f"- {k}: {v}" for k,v in TOKEN_ERRORS.items()]
-lines += ["","## Per-repository result","","| Repository | Status | Branches | Tags | PR refs | Trees merged | LFS |","|---|---|---:|---:|---:|---:|---|"]
-for x in statuses:
-    lines.append("| {} | {} | {} | {} | {} | {} | {} |".format(x.get("repository","?"),x.get("status","?"),
-        x.get("branches",0),x.get("tags",0),x.get("pull_refs",0),x.get("trees_merged",0),str(x.get("lfs","—")).replace("|","/")))
-lines += ["","## Notes",""]+[f"- {x}" for x in result["notes"]]
+            for p,v in tree_entries(commit): merge_entry(p,v,owner,repo,label); fn+=1
+            tn+=1
+        except Exception as e: errs.append(label+":"+type(e).__name__)
+    COUNT["trees"]+=tn; COUNT["tree_entries"]+=fn
+    state="IMPORTED" if pushed==len(specs) and not errs and lfs=="uploaded" else "PARTIAL"
+    RESULTS.append({"repo":full,"status":state,"branches":len(br),"tags":len(tags),"pull_refs":len(pulls),"refs_pushed":pushed,"expected_refs":len(specs),"trees":tn,"entries":fn,"lfs":lfs,"tree_errors":errs[:8],"pull_notes":pull_notes})
+missing=sorted(v for v in TOKEN_VARS.values() if v not in TOKENS)
+full_complete=not SKIPPED and not missing and not TOKEN_ERRORS and not COUNT["ref_push_failures"] and not COUNT["lfs_failures"] and all(x.get("status")=="IMPORTED" for x in RESULTS)
+lines=["# Import Report","",f"Run result: {'COMPLETE' if full_complete else 'PARTIAL'}","",f"Target: {TARGET}"]
+lines += [f"{k.replace('_',' ')}: {v}" for k,v in COUNT.items()]
+lines += ["","## Required secrets"]+["- "+x for x in missing]
+lines += ["","## Private repositories skipped"]+["- "+x for x in SKIPPED]
+lines += ["","## Token errors"]+[f"- {k}: {v}" for k,v in TOKEN_ERRORS.items()]
+lines += ["","## Repository results","","| Repository | Status | Branches | Tags | PR refs | Trees | LFS |","|---|---|---:|---:|---:|---:|---|"]
+for x in RESULTS: lines.append("| {} | {} | {} | {} | {} | {} | {} |".format(x.get("repo"),x.get("status"),x.get("branches",0),x.get("tags",0),x.get("pull_refs",0),x.get("trees",0),x.get("lfs","—")))
+lines += ["","## Known omissions","- GitHub release assets are not Git refs and are not copied by this workflow.","- A missing source token means that private repository and any additional account-only repositories cannot be imported.","- LFS skip/failure means its payload still needs transfer."]
 report_oid=git(["hash-object","-w","--stdin"],raw=True,input_data=("\n".join(lines)+"\n").encode())[0].decode().strip()
-add_entry(b"IMPORT_REPORT.md",("100644","blob",report_oid),replace=True)
-tree_oid=build_tree(entries)
-commit=git(["commit-tree",tree_oid,"-p",base,"-m","Consolidate accessible repositories, branches, tags and working trees"])
-git(["update-ref","refs/heads/main",commit,base])
-_,push_rc,push_err=git(["push","origin","refs/heads/main:refs/heads/main"],token=os.environ.get("GITHUB_TOKEN",""),raw=True,check=False)
-if push_rc:
-    print("MAIN_PUSH_FAILED: "+push_err[-2000:],file=sys.stderr); sys.exit(2)
-print(json.dumps(result,indent=2))
+add(b"IMPORT_REPORT.md",("100644","blob",report_oid),True)
+newtree=make_tree(PATHS)
+newcommit=git(["commit-tree",newtree,"-p",base,"-m","Consolidate accessible repository refs and working trees"])
+git(["update-ref","refs/heads/main",newcommit,base])
+_,rc,err=git(["push","origin","refs/heads/main:refs/heads/main"],token=os.environ.get("GITHUB_TOKEN",""),raw=True,check=False)
+if rc: print("MAIN_PUSH_FAILED: "+err[-1400:],file=sys.stderr); sys.exit(2)
+print(json.dumps({"result":"COMPLETE" if full_complete else "PARTIAL","counts":COUNT,"skipped_private":SKIPPED,"missing_secrets":missing,"token_errors":TOKEN_ERRORS,"repositories":RESULTS},indent=2))
