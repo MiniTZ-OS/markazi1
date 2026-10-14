@@ -8,8 +8,8 @@ tags: 4
 pull refs: 0
 trees: 11
 tree entries: 101
-unique paths added: 43
-conflict versions added: 26
+unique paths added: 0
+conflict versions added: 0
 ref push failures: 8
 lfs failures: 0
 
@@ -17,6 +17,7 @@ lfs failures: 0
 - SOURCE_TOKEN_MAHDITT96
 - SOURCE_TOKEN_MATAGHDISI96_SOURCE
 - SOURCE_TOKEN_MMLABSAI
+- TARGET_WRITE_TOKEN
 
 ## Private repositories skipped
 - MiniTZOS/minitz-os-final
