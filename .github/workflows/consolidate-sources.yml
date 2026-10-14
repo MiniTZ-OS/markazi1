@@ -30,7 +30,7 @@ jobs:
       - name: Load existing GitHub SSH key
         uses: webfactory/ssh-agent@v0.9.0
         with:
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY || secrets.SSH_KEY || secrets.GITHUB_SSH_KEY || secrets.PRIVATE_KEY || secrets.MINITZ_SSH_KEY || secrets.DEPLOY_KEY }}
       - name: Configure Git SSH transport
         run: |
           mkdir -p ~/.ssh
