@@ -8,4 +8,4 @@ This repository consolidates tracked working-tree content and recoverable Git hi
 - Source tags use source-tags/OWNER/REPOSITORY/TAG. Pull-request refs use source-pulls/OWNER/REPOSITORY/NUMBER/TYPE.
 - Original source repositories are read-only inputs. Only MMLabsAI/markazi1 is written.
 
-For private sources, add the secrets SOURCE_TOKEN_MAHDITT96, SOURCE_TOKEN_MMLABSAI and SOURCE_TOKEN_MATAGHDISI96_SOURCE with read access to the corresponding accounts' source repos, including Git LFS. See IMPORT_REPORT.md for evidence and omissions.
+For private sources, add the secrets SOURCE_TOKEN_MAHDITT96, SOURCE_TOKEN_MMLABSAI and SOURCE_TOKEN_MATAGHDISI96_SOURCE with read access to the corresponding accounts' source repos, including Git LFS. Add TARGET_WRITE_TOKEN for a token with Contents read/write and Workflows read/write on this target repository; the default Actions token cannot import commits that change workflow files. See IMPORT_REPORT.md for evidence and omissions.

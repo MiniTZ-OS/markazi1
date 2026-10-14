@@ -58,7 +58,26 @@ lfs failures: 0
 | taghdisilabs-digital/tree | SKIPPED_MISSING_TOKEN | 0 | 0 | 0 | 0 | — |
 | taghdisilabs-digital/v1OS | IMPORTED | 1 | 1 | 0 | 2 | uploaded |
 
+## Ref push failures
+- +68a80d406a421c6391288aa8d774387ab5346867:refs/heads/source-branches/MInitzrm/TaghdisiLabs/main: error: failed to push some refs to 'https://github.com/MMLabsAI/markazi1'
+
+- 68a80d406a421c6391288aa8d774387ab5346867:refs/heads/source-snapshots/MInitzrm/TaghdisiLabs/main/68a80d406a421c6391288aa8d774387ab5346867: error: failed to push some refs to 'https://github.com/MMLabsAI/markazi1'
+
+- +68a80d406a421c6391288aa8d774387ab5346867:refs/heads/source-branches/MInitzrm/TaghdisiLabs/tree: error: failed to push some refs to 'https://github.com/MMLabsAI/markazi1'
+
+- 68a80d406a421c6391288aa8d774387ab5346867:refs/heads/source-snapshots/MInitzrm/TaghdisiLabs/tree/68a80d406a421c6391288aa8d774387ab5346867: error: failed to push some refs to 'https://github.com/MMLabsAI/markazi1'
+
+- +bd51a44a46dd1aa515cfacbe233f849ba81c6a09:refs/heads/source-branches/MInitzrm/ZombieTZ-Releases/main: error: failed to push some refs to 'https://github.com/MMLabsAI/markazi1'
+
+- bd51a44a46dd1aa515cfacbe233f849ba81c6a09:refs/heads/source-snapshots/MInitzrm/ZombieTZ-Releases/main/bd51a44a46dd1aa515cfacbe233f849ba81c6a09: error: failed to push some refs to 'https://github.com/MMLabsAI/markazi1'
+
+- +751122872da992f93a380bf1c1b32e2137e952d8:refs/tags/source-tags/MInitzrm/ZombieTZ-Releases/demo01-rtx-20261004-c35d317: error: failed to push some refs to 'https://github.com/MMLabsAI/markazi1'
+
+- 751122872da992f93a380bf1c1b32e2137e952d8:refs/tags/source-tag-snapshots/MInitzrm/ZombieTZ-Releases/demo01-rtx-20261004-c35d317/751122872da992f93a380bf1c1b32e2137e952d8: error: failed to push some refs to 'https://github.com/MMLabsAI/markazi1'
+
+
 ## Known omissions
 - GitHub release assets are not Git refs and are not copied by this workflow.
 - A missing source token means that private repository and any additional account-only repositories cannot be imported.
+- TARGET_WRITE_TOKEN requires target-repository Workflows read/write because GITHUB_TOKEN cannot import workflow-changing refs.
 - LFS skip/failure means its payload still needs transfer.
