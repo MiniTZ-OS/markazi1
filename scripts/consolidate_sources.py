@@ -152,7 +152,7 @@ for src in sorted(S.values(),key=lambda x:x["full_name"].lower()):
         name=r[len(pp):]; oid=git(["rev-parse",r])
         specs += ["+"+oid+f":refs/heads/source-pulls/{owner}/{repo}/{name}",oid+f":refs/heads/source-pull-snapshots/{owner}/{repo}/{name}/{oid}"]
         trees.append((r,"pulls/"+name,2))
-    pushed=push_refs(specs,os.environ.get("GITHUB_TOKEN","")) if specs else 0
+    pushed=push_refs(specs,os.environ.get("TARGET_WRITE_TOKEN","").strip() or os.environ.get("GITHUB_TOKEN","")) if specs else 0
     lfs="not_checked"
     try:
         probe=subprocess.run(["git","lfs","version"],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
@@ -164,7 +164,7 @@ for src in sorted(S.values(),key=lambda x:x["full_name"].lower()):
             else:
                 ok=True
                 for i in range(0,len(trees),25):
-                    _,prc,_=git(["lfs","push","--all","origin",*[x[0] for x in trees[i:i+25]]],token=os.environ.get("GITHUB_TOKEN",""),raw=True,check=False)
+                    _,prc,_=git(["lfs","push","--all","origin",*[x[0] for x in trees[i:i+25]]],token=os.environ.get("TARGET_WRITE_TOKEN","").strip() or os.environ.get("GITHUB_TOKEN",""),raw=True,check=False)
                     if prc: ok=False; lfs="push-failed"; COUNT["lfs_failures"]+=1; break
                 if ok: lfs="uploaded"
             shutil.rmtree(ROOT/".git"/"lfs"/"objects",ignore_errors=True); (ROOT/".git"/"lfs"/"objects").mkdir(parents=True,exist_ok=True)
@@ -180,7 +180,7 @@ for src in sorted(S.values(),key=lambda x:x["full_name"].lower()):
     COUNT["trees"]+=tn; COUNT["tree_entries"]+=fn
     state="IMPORTED" if pushed==len(specs) and not errs and lfs=="uploaded" else "PARTIAL"
     RESULTS.append({"repo":full,"status":state,"branches":len(br),"tags":len(tags),"pull_refs":len(pulls),"refs_pushed":pushed,"expected_refs":len(specs),"trees":tn,"entries":fn,"lfs":lfs,"tree_errors":errs[:8],"pull_notes":pull_notes})
-missing=sorted(v for v in TOKEN_VARS.values() if v not in TOKENS)
+missing=sorted([v for v in TOKEN_VARS.values() if v not in TOKENS] + ([] if os.environ.get("TARGET_WRITE_TOKEN","").strip() else ["TARGET_WRITE_TOKEN"]))
 full_complete=not SKIPPED and not missing and not TOKEN_ERRORS and not COUNT["ref_push_failures"] and not COUNT["lfs_failures"] and all(x.get("status")=="IMPORTED" for x in RESULTS)
 lines=["# Import Report","",f"Run result: {'COMPLETE' if full_complete else 'PARTIAL'}","",f"Target: {TARGET}"]
 lines += [f"{k.replace('_',' ')}: {v}" for k,v in COUNT.items()]
