@@ -66,7 +66,7 @@ def possible(path,val):
     parts=path.split(b"/")
     return path not in DIRS and not any(b"/".join(parts[:i]) in FILES for i in range(1,len(parts)))
 def merge_entry(path,val,owner,repo,label):
-    if not (path==RESERVED or path.startswith(RESERVED+b"/")) and possible(path,val):
+    if not (path==RESERVED or path.startswith(RESERVED+b"/") or path==b".github/workflows" or path.startswith(b".github/workflows/")) and possible(path,val):
         if path not in PATHS: add(path,val); COUNT["unique_paths_added"]+=1
         return
     alt=RESERVED+b"/"+owner.encode()+b"/"+repo.encode()+b"/"+label.encode("utf-8","surrogateescape")+b"/"+path
